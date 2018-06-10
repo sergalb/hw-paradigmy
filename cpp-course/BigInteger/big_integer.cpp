@@ -79,7 +79,7 @@ big_integer &big_integer::operator+=(big_integer const &rhs) {
     if (vec.back() != 0 && vec.back() != UINT32_MAX) {
         vec.push_back((vec.back() > 0) ? 0 : 1);
     }
-    del_useless_zero(*this);
+    this->del_useless_zero();
     return *this;
 }
 
@@ -101,44 +101,68 @@ big_integer &big_integer::operator-=(big_integer const &rhs) {
     if (vec.back() != 0 && vec.back() != UINT32_MAX) {
         vec.push_back((vec.back() > 0) ? 0 : UINT32_MAX);
     }
-    del_useless_zero(*this);
+    this->del_useless_zero();
     return *this;
 }
 
 big_integer &big_integer::operator*=(big_integer const &rhs) {
-    uint32_t sign = (vec.back() != rhs.vec.back()) ? UINT32_MAX : 0;
-    big_integer a, b;
+    if (*this == 0) {
+        return *this;
+    }
+    if (rhs == 0) {
+        *this = 0;
+        return *this;
+    }
+    bool sign = (vec.back() != rhs.vec.back()) ;
+    big_integer const * a;
+    big_integer const * b;
+    big_integer negate_this;
+    big_integer negate_rhs;
     if (rhs.vec.size() > vec.size()) {
-        a = rhs;
-        b = *this;
+        if (this->vec.back() == UINT32_MAX) {
+            negate_this = -*this;
+            b = &negate_this;
+        } else {
+            b = this;
+        }
+        if (rhs.vec.back() == UINT32_MAX) {
+            negate_rhs = -rhs;
+            a = &negate_rhs;
+        } else {
+            a = &rhs;
+        }
     } else {
-        a = *this;
-        b = rhs;
-    }
-    if (a.vec.back() == UINT32_MAX) {
-        a = -a;
-    }
-    if (b.vec.back() == UINT32_MAX) {
-        b = -b;
+        if (this->vec.back() == UINT32_MAX) {
+            negate_this = -*this;
+            a = &negate_this;
+        } else {
+            a = this;
+        }
+        if (rhs.vec.back() == UINT32_MAX) {
+            negate_rhs = -rhs;
+            b = &negate_rhs;
+        } else {
+            b = &rhs;
+        }
     }
     big_integer ans;
-    ans.vec.resize(a.vec.size() + b.vec.size());
-    for (int i = 0; i < b.vec.size() - 1; ++i) {
+    ans.vec.resize(a->vec.size() + b->vec.size());
+    for (int i = 0; i < b->vec.size() - 1; ++i) {
         big_integer cur_ans;
-        cur_ans.vec.resize(a.vec.size() + b.vec.size() - 2);
+        cur_ans.vec.resize(a->vec.size() + b->vec.size() - 2);
         uint32_t carry = 0;
-        for (int j = 0; j < a.vec.size(); j++) {
-            uint64_t mul_digit = static_cast<uint64_t >(a.vec[j]) *
-                                 static_cast<uint64_t >(b.vec[i]);
+        for (int j = 0; j < a->vec.size(); j++) {
+            uint64_t mul_digit = static_cast<uint64_t >(a->vec[j]) *
+                                 static_cast<uint64_t >(b->vec[i]);
             mul_digit += carry;
             cur_ans.vec[i + j] = static_cast<uint32_t>(mul_digit & ((1 << 32) - 1));
             carry = static_cast<uint32_t >((mul_digit) >> 32);
         }
         if (carry < INT32_MAX) {
-            if (i + a.vec.size() - 1 >= cur_ans.vec.size()) {
+            if (i + a->vec.size() - 1 >= cur_ans.vec.size()) {
                 cur_ans.vec.push_back((carry));
             } else {
-                cur_ans.vec[i + a.vec.size() - 1] += carry;
+                cur_ans.vec[i + a->vec.size() - 1] += carry;
             }
         }
         ans += cur_ans;
@@ -146,10 +170,10 @@ big_integer &big_integer::operator*=(big_integer const &rhs) {
     if (ans.vec.back() != 0) {
         ans.vec.back() = 0;
     }
-    if (sign == UINT32_MAX) {
+    if (sign) {
         ans = -ans;
     }
-    del_useless_zero(ans);
+    ans.del_useless_zero();
     *this = ans;
     return *this;
 }
@@ -176,6 +200,9 @@ big_integer &big_integer::operator^=(big_integer const &rhs) {
 }
 
 big_integer &big_integer::operator<<=(unsigned rhs) {
+    if (rhs == 0) {
+        return *this;
+    }
     uint32_t sign = vec.back();
     uint32_t big = rhs / 32, small = rhs % 32, r = 0;
     for (uint32_t &i : vec) {
@@ -186,7 +213,7 @@ big_integer &big_integer::operator<<=(unsigned rhs) {
         }
         r = tmp;
     }
-    del_useless_zero(*this);
+    this->del_useless_zero();
     std::vector<uint32_t> tmp_vec(big, 0);
     for (uint32_t i : vec) {
         tmp_vec.push_back(i);
@@ -195,11 +222,14 @@ big_integer &big_integer::operator<<=(unsigned rhs) {
     if (vec.back() != sign) {
         vec.push_back(sign);
     }
-    del_useless_zero(*this);
+    this->del_useless_zero();
     return *this;
 }
 
 big_integer &big_integer::operator>>=(unsigned rhs) {
+    if (rhs == 0) {
+        return *this;
+    }
     uint32_t small = rhs % 32;
     std::vector<uint32_t> tmp_vec;
     for (uint32_t i : vec) {
@@ -214,7 +244,7 @@ big_integer &big_integer::operator>>=(unsigned rhs) {
         vec[i] = (vec[i]) >> small;
         vec[i] += tmp;
     }
-    del_useless_zero(*this);
+    this->del_useless_zero();
     return *this;
 }
 
@@ -226,7 +256,6 @@ big_integer big_integer::operator-() const {
     big_integer res(*this);
     res = ~res;
     res++;
-    del_useless_zero(res);
     return res;
 }
 
@@ -235,7 +264,7 @@ big_integer big_integer::operator~() const {
     for (auto &i : b_i.vec) {
         i = ~i;
     }
-    del_useless_zero(b_i);
+    b_i.del_useless_zero();
     return b_i;
 }
 
@@ -264,14 +293,8 @@ big_integer big_integer::operator--(int) {
 bool operator==(big_integer const &a, big_integer const &b) {
     if (a.vec.size() != b.vec.size()) {
         return false;
-    } else {
-        for (int i = 0; i < a.vec.size(); i++) {
-            if (a.vec[i] != b.vec[i]) {
-                return false;
-            }
-        }
     }
-    return true;
+    return a.vec == b.vec;
 }
 
 bool operator!=(big_integer const &a, big_integer const &b) {
@@ -307,8 +330,12 @@ big_integer operator*(big_integer a, big_integer const &b) {
     return a *= b;
 }
 
-big_integer operator/(big_integer a, big_integer const &b) {
+big_integer operator/(big_integer &a, big_integer const &b) {
     return div_m_in_n(a, b);
+}
+
+big_integer operator%(big_integer a, big_integer const &b) {
+    return a %= b;
 }
 
 big_integer operator<<(big_integer a, unsigned int b) {
@@ -323,10 +350,6 @@ std::ostream &operator<<(std::ostream &s, big_integer const &a) {
     return s << to_string(a);
 }
 
-big_integer operator%(big_integer a, big_integer const &b) {
-    return a %= b;
-}
-
 big_integer operator&(big_integer a, big_integer const &b) {
     return a &= b;
 }
@@ -338,7 +361,6 @@ big_integer operator|(big_integer a, big_integer const &b) {
 big_integer operator^(big_integer a, big_integer const &b) {
     return a ^= b;
 }
-
 
 big_integer operator&(big_integer a, uint32_t b) {
     big_integer b_i(b);
@@ -357,20 +379,16 @@ big_integer operator^(big_integer a, uint32_t b) {
 
 std::string to_string(big_integer const &a) {
     bool negate = a.vec.back() == -1;
-    const big_integer *b_i;
-    big_integer lv;
+    big_integer b_i;
     if (negate) {
-        //todo опять lvalue;
-        lv = (-a);
-        b_i = &lv;
+        b_i = -a;
     } else {
-        b_i = &a;
+        b_i = a;
     }
-    //todo попробовать умножать с учетом минуса и не вставлять его в конце
     std::string ans = "0";
-    for (int i = b_i->vec.size() - 2; i >= 0; i--) {
+    for (int i = b_i.vec.size() - 2; i >= 0; i--) {
         for (int shift = sizeof(uint32_t) * 8 - 1; shift >= 0; shift--) {
-            multiply_string(ans, ((b_i->vec[i] >> shift) & 1));
+            multiply_string(ans, ((b_i.vec[i] >> shift) & 1));
         }
     }
     if (negate) {
@@ -385,7 +403,7 @@ big_integer div_m_in_n(big_integer dividend, big_integer divider) {
     if (m < n) {
         return 0;
     }
-    uint32_t sign = (dividend.vec.back() != divider.vec.back()) ? UINT32_MAX : 0;
+    bool sign = (dividend.vec.back() != divider.vec.back());
     if (dividend.vec.back() == UINT32_MAX) {
         dividend = -dividend;
     }
@@ -394,7 +412,7 @@ big_integer div_m_in_n(big_integer dividend, big_integer divider) {
     }
     if (m - 1 == 1) {
         std::string neg = "";
-        if (sign == UINT32_MAX) {
+        if (sign) {
             neg = "-";
         }
         return big_integer(neg + std::to_string(dividend.vec[0] / divider.vec[0]));
@@ -410,36 +428,27 @@ big_integer div_m_in_n(big_integer dividend, big_integer divider) {
             quotient.vec[0] = right_half(res);
             quotient.vec[1] = left_half(res);
             quotient.vec.push_back(0);
-            if (sign == UINT32_MAX) {
+            if (sign) {
                 quotient = -quotient;
             }
             if (quotient.vec.back() == UINT32_MAX && quotient.vec[1] == UINT32_MAX) {
                 quotient.vec.pop_back();
             }
-            del_useless_zero(quotient);
+            quotient.del_useless_zero();
             return quotient;
         }
         if (n - 1 == 2) {
             auto res = static_cast<int>(right_half(
                     link(dividend.vec[1], dividend.vec[0]) / link(divider.vec[1], divider.vec[0])));
             big_integer ans(res);
-            if (sign == UINT32_MAX) {
+            if (sign) {
                 ans = -ans;
             }
             return big_integer(res);
-        } else {
-            std::pair<uint32_t, uint32_t> res = div_2_in_1(dividend.vec[1], dividend.vec[0], divider.vec[0]);
-            big_integer ans;
-            if (sign == UINT32_MAX) {
-                ans = big_integer('-' + std::to_string(res.first));
-            } else {
-                ans = big_integer(static_cast<int>(res.first));
-            }
-            return ans;
         }
     }
     if (n - 1 == 1) {
-        return div_m_in_1(dividend, divider.vec[0], sign);
+        return div_m_in_1(dividend, divider.vec[0], sign, shift);
     }
     big_integer quotient;
     quotient.vec.resize(k + 3);
@@ -465,8 +474,8 @@ big_integer div_m_in_n(big_integer dividend, big_integer divider) {
         }
         --k;
     }
-    del_useless_zero(quotient);
-    if (sign == UINT32_MAX) {
+    quotient.del_useless_zero();
+    if (sign) {
         quotient = -quotient;
     }
     return quotient;
@@ -534,13 +543,13 @@ void divide_string(std::string &str) {
     }
 }
 
-void del_useless_zero(big_integer &b_i) {
-    while (b_i.vec.size() > 2) {
-        if (b_i.vec[b_i.vec.size() - 2] == 0) {
-            if ((b_i.vec.back() == 0)) {
-                b_i.vec.pop_back();
-            } else if (b_i.vec.back() == UINT32_MAX) {
-                b_i.vec.erase(b_i.vec.end() - 2);
+void big_integer:: del_useless_zero() {
+    while (vec.size() > 2) {
+        if (vec[vec.size() - 2] == 0) {
+            if ((vec.back() == 0)) {
+                vec.pop_back();
+            } else if (vec.back() == UINT32_MAX) {
+                vec.erase(vec.end() - 2);
             }
         } else {
             break;
@@ -586,33 +595,20 @@ uint32_t normalize(big_integer &dividend, big_integer &divider) {
     return shift;
 }
 
-uint32_t normalize(big_integer &dividend, uint32_t &divider) {
-    if (divider > INT_MAX) {
-        return 0;
-    }
-    uint32_t shift = high_bit_bs(divider);
-    dividend <<= shift;
-    divider <<= shift;
-    return shift;
-}
-
-big_integer div_m_in_1(big_integer dividend, uint32_t divider, uint32_t sign) {
-    //unsigned long long int tmp_size = dividend.vec.size();
-    uint32_t shift = normalize(dividend, divider);
+big_integer div_m_in_1(big_integer &dividend, uint32_t divider, bool sign, uint32_t shift) {
     uint32_t remainder = 0;
-    int i = dividend.vec.size() - 2;
     big_integer quotient;
     quotient.vec.resize(dividend.vec.size());
-    while (i >= 0) {
+    for (int i = dividend.vec.size() - 2; i >= 0; --i) {
         std::pair<uint32_t, uint32_t> cur_res = div_2_in_1(remainder, dividend.vec[i], divider);
         quotient.vec[i] = cur_res.first;
         remainder = cur_res.second;
-        --i;
     }
-    del_useless_zero(quotient);
-    if (sign == UINT32_MAX) {
+    quotient.del_useless_zero();
+    if (sign) {
         quotient = -quotient;
     }
+    dividend >>= shift;
     return quotient;
 }
 
@@ -669,6 +665,6 @@ big_integer &bit_operation(big_integer &a, big_integer const &b, void (*operatio
             operation(a.vec[i], first_bits);
         }
     }
-    del_useless_zero(a);
+    a.del_useless_zero();
     return a;
 }
