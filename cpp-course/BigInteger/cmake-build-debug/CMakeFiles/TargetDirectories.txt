@@ -1,3 +1,0 @@
-C:/Users/Sergey/Desktop/BigInteger/cmake-build-debug/CMakeFiles/big_integer_testing.dir
-C:/Users/Sergey/Desktop/BigInteger/cmake-build-debug/CMakeFiles/edit_cache.dir
-C:/Users/Sergey/Desktop/BigInteger/cmake-build-debug/CMakeFiles/rebuild_cache.dir
