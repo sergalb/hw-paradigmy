@@ -1,5 +1,4 @@
-*.idea
+*.idea*
 *.iml
 *out*
 *.xml
-/1 MD5/.idea/
